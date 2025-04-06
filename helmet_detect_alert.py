@@ -1,7 +1,6 @@
 import cv2
 import os
-from gtts import gTTS
-import pygame
+import pyttsx3
 from ultralytics import YOLO
 import numpy as np
 from tkinter import filedialog, messagebox
@@ -63,10 +62,18 @@ def log_alert(message):
         writer.writerow([timestamp, message])
 
 # ----------------- Run YOLO Prediction + Alerts -----------------
-def detect_and_alert(video_path, model, confidence=CONFIDENCE_THRESHOLD):
+def detect_and_alert(video_path, output_path, model, confidence=CONFIDENCE_THRESHOLD):
     cap = cv2.VideoCapture(video_path)
     frame_count = 0
     alert_cooldown = 15
+    out = None
+    if output_path:
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -96,14 +103,19 @@ def detect_and_alert(video_path, model, confidence=CONFIDENCE_THRESHOLD):
                 log_alert(f"Alert at frame {frame_count}: No helmet at ({hx1}, {hy1})")
         if alert_triggered and frame_count % alert_cooldown == 0:
             speak_alert("Alert! Person without helmet detected", ALERT_LANGUAGE)
+        if out:
+            out.write(annotated_frame)
         cv2.imshow("Helmet Detection", annotated_frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cap.release()
+    if out:
+        out.release()
     cv2.destroyAllWindows()
 
 # ----------------- Detect from Multiple Images -----------------
-def detect_from_images(image_paths, model, confidence=CONFIDENCE_THRESHOLD):
+def detect_from_images(image_paths, model, confidence=CONFIDENCE_THRESHOLD, return_path=False):
+    result_paths = []
     for image_path in image_paths:
         frame = cv2.imread(image_path)
         results = model.predict(source=frame, conf=confidence, verbose=False)
@@ -126,11 +138,15 @@ def detect_from_images(image_paths, model, confidence=CONFIDENCE_THRESHOLD):
                 cv2.putText(annotated_frame, "⚠ No Helmet!", (hx1, hy1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 alert_triggered = True
                 log_alert(f"Alert: No helmet at ({hx1}, {hy1}) in image {image_path}")
+        output_path = f"output/pred_{os.path.basename(image_path)}"
+        os.makedirs("output", exist_ok=True)
+        cv2.imwrite(output_path, annotated_frame)
+        result_paths.append(output_path)
         if alert_triggered:
             speak_alert("Alert! Person without helmet detected", ALERT_LANGUAGE)
-        cv2.imshow(f"Result - {os.path.basename(image_path)}", annotated_frame)
-        cv2.waitKey(0)
     cv2.destroyAllWindows()
+    if return_path:
+        return result_paths if len(result_paths) > 1 else result_paths[0]
 
 # ----------------- Snapshot -----------------
 def save_snapshot(frame, path="snapshot.jpg"):
