@@ -1,60 +1,55 @@
 import gradio as gr
-import cv2
 import os
+from helmet_detect_alert import detect_and_alert, detect_from_images, MODEL_PATHS
 from ultralytics import YOLO
-from helmet_detect_alert import detect_from_images, detect_and_alert, MODEL_PATHS, CONFIDENCE_THRESHOLD
+from PIL import Image
 
-model_cache = {}
+# Load model
+model_path = MODEL_PATHS["YOLOv8n"]
+model = YOLO(model_path)
 
-def load_model(model_name):
-    if model_name not in model_cache:
-        model_cache[model_name] = YOLO(MODEL_PATHS[model_name])
-    return model_cache[model_name]
+# ---------- Functions ----------
+def detect_image_fn(image, confidence):
+    if not image:
+        return None
+    result_path = detect_from_images([image], model, confidence, return_path=True)
+    return result_path[0] if result_path else None
 
-def process_image(image, model_name, confidence):
-    model = load_model(model_name)
-    results = model.predict(source=image, conf=confidence, verbose=False)
-    annotated = results[0].plot()
-    return annotated
-
-def process_video(video, model_name, confidence):
-    input_path = "temp_input_video.mp4"
-    output_path = "temp_output_video.mp4"
-    with open(input_path, "wb") as f:
-        f.write(video.read())
-    model = load_model(model_name)
-    detect_and_alert(input_path, output_path, model, confidence)
+def detect_video_fn(video, confidence):
+    if not video:
+        return None
+    output_path = os.path.join("output", os.path.basename(video.name).replace(".", "_pred.")) + "mp4"
+    os.makedirs("output", exist_ok=True)
+    detect_and_alert(video.name, output_path, model, confidence)
     return output_path
 
-with gr.Blocks() as demo:
-    gr.Markdown("# 🪖 Helmet Detection App (YOLOv8)")
+# ---------- Gradio Interfaces ----------
+image_interface = gr.Interface(
+    fn=detect_image_fn,
+    inputs=[
+        gr.Image(type="filepath", label="Upload Image"),
+        gr.Slider(0.1, 1.0, step=0.05, value=0.3, label="Confidence Threshold")
+    ],
+    outputs="image",
+    title="🖼 Helmet Detection - Image",
+    description="Upload an image to detect if helmets are worn. Alerts will be shown if heads are not protected."
+)
 
-    with gr.Tab("📷 Image Detection"):
-        with gr.Row():
-            image_input = gr.Image(type="numpy", label="Upload Image")
-            image_output = gr.Image(label="Detection Result")
+video_interface = gr.Interface(
+    fn=detect_video_fn,
+    inputs=[
+        gr.Video(type="file", label="Upload Video"),
+        gr.Slider(0.1, 1.0, step=0.05, value=0.3, label="Confidence Threshold")
+    ],
+    outputs="video",
+    title="🎥 Helmet Detection - Video",
+    description="Upload a video and the model will detect people without helmets and generate alerts."
+)
 
-        with gr.Row():
-            conf_slider_img = gr.Slider(0.1, 1.0, value=CONFIDENCE_THRESHOLD, label="Confidence Threshold")
-            model_selector_img = gr.Dropdown(choices=list(MODEL_PATHS.keys()), value="YOLOv8n", label="YOLO Model")
-            btn_detect_img = gr.Button("🔍 Detect Helmet")
+# ---------- Tabs ----------
+app = gr.TabbedInterface(
+    [image_interface, video_interface],
+    tab_names=["Image Detection", "Video Detection"]
+)
 
-        btn_detect_img.click(fn=process_image, inputs=[image_input, model_selector_img, conf_slider_img], outputs=image_output)
-
-    with gr.Tab("🎥 Video Detection"):
-        with gr.Row():
-            video_input = gr.File(file_types=[".mp4"], label="Upload Video")
-            video_output = gr.Video(label="Detection Result")
-
-        with gr.Row():
-            conf_slider_vid = gr.Slider(0.1, 1.0, value=CONFIDENCE_THRESHOLD, label="Confidence Threshold")
-            model_selector_vid = gr.Dropdown(choices=list(MODEL_PATHS.keys()), value="YOLOv8n", label="YOLO Model")
-            btn_detect_vid = gr.Button("🎬 Detect Helmet in Video")
-
-        btn_detect_vid.click(fn=process_video, inputs=[video_input, model_selector_vid, conf_slider_vid], outputs=video_output)
-
-    gr.Markdown("---")
-    gr.Markdown("Developed by **Kiran Subedi** | kiransubedi545@gmail.com | [Website](http://kiransubedi545.com.np)")
-
-if __name__ == "__main__":
-    gr.TabbedInterface([...]).launch()
+app.launch()
