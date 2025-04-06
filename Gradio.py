@@ -50,4 +50,4 @@ video_interface = gr.Interface(
 gr.TabbedInterface(
     [image_interface, video_interface],
     tab_names=["Image Detection", "Video Detection"]
-).launch()
+).launch(share=True)
