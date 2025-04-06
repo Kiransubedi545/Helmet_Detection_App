@@ -1,6 +1,7 @@
 import cv2
 import os
-import pyttsx3
+from gtts import gTTS
+import pygame
 from ultralytics import YOLO
 import numpy as np
 from tkinter import filedialog, messagebox
