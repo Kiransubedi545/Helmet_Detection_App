@@ -2,54 +2,52 @@ import gradio as gr
 import os
 from helmet_detect_alert import detect_and_alert, detect_from_images, MODEL_PATHS
 from ultralytics import YOLO
-from PIL import Image
 
-# Load model
+# Load YOLOv8 model
 model_path = MODEL_PATHS["YOLOv8n"]
 model = YOLO(model_path)
 
-# ---------- Functions ----------
-def detect_image_fn(image, confidence):
-    if not image:
+# ---------- Detection Functions ----------
+def detect_image_fn(image_path, confidence):
+    if image_path is None:
         return None
-    result_path = detect_from_images([image], model, confidence, return_path=True)
-    return result_path[0] if result_path else None
+    results = detect_from_images([image_path], model, confidence, return_path=True)
+    return results[0] if results else None
 
-def detect_video_fn(video, confidence):
-    if not video:
+def detect_video_fn(video_file, confidence):
+    if video_file is None:
         return None
-    output_path = os.path.join("output", os.path.basename(video.name).replace(".", "_pred.")) + "mp4"
+    input_path = video_file
+    output_path = os.path.join("output", os.path.basename(input_path).replace(".", "_pred.")) + "mp4"
     os.makedirs("output", exist_ok=True)
-    detect_and_alert(video.name, output_path, model, confidence)
+    detect_and_alert(input_path, output_path, model, confidence)
     return output_path
 
-# ---------- Gradio Interfaces ----------
+# ---------- Interfaces ----------
 image_interface = gr.Interface(
     fn=detect_image_fn,
     inputs=[
-        gr.Image(type="filepath", label="Upload Image"),
-        gr.Slider(0.1, 1.0, step=0.05, value=0.3, label="Confidence Threshold")
+        gr.Image(label="Upload Image"),  # No type="filepath"
+        gr.Slider(0.1, 1.0, value=0.3, step=0.05, label="Confidence")
     ],
-    outputs="image",
-    title="🖼 Helmet Detection - Image",
-    description="Upload an image to detect if helmets are worn. Alerts will be shown if heads are not protected."
+    outputs=gr.Image(label="Predicted Output"),
+    title="🖼 Helmet Detection from Image",
+    description="Upload an image to detect heads not wearing helmets."
 )
 
 video_interface = gr.Interface(
     fn=detect_video_fn,
     inputs=[
-        gr.Video(type="file", label="Upload Video"),
-        gr.Slider(0.1, 1.0, step=0.05, value=0.3, label="Confidence Threshold")
+        gr.Video(label="Upload Video"),  # No type="file"
+        gr.Slider(0.1, 1.0, value=0.3, step=0.05, label="Confidence")
     ],
-    outputs="video",
-    title="🎥 Helmet Detection - Video",
-    description="Upload a video and the model will detect people without helmets and generate alerts."
+    outputs=gr.Video(label="Predicted Output"),
+    title="🎥 Helmet Detection from Video",
+    description="Upload a video and get helmet detection alerts visually."
 )
 
-# ---------- Tabs ----------
-app = gr.TabbedInterface(
+# ---------- Launch Tabbed App ----------
+gr.TabbedInterface(
     [image_interface, video_interface],
     tab_names=["Image Detection", "Video Detection"]
-)
-
-app.launch()
+).launch()
