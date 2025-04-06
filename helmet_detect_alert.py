@@ -16,7 +16,7 @@ from datetime import datetime
 # ----------------- Configuration -----------------
 DOWNLOAD_PATH = r"D:\Learning Programming\Python\Deep learning\YOLOv8\Test_videos"
 MODEL_PATHS = {
-    "YOLOv8n": r"D:\Learning Programming\Python\Deep learning\YOLOv8\runs\detect\train5\weights\best.pt"
+    "YOLOv8n": "models/best.pt"
 }
 ALERT_ICON_PATH = "alert_icon.png"
 ALERT_LOG_PATH = "alert_log.csv"
