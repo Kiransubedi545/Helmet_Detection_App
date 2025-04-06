@@ -57,4 +57,4 @@ with gr.Blocks() as demo:
     gr.Markdown("Developed by **Kiran Subedi** | kiransubedi545@gmail.com | [Website](http://kiransubedi545.com.np)")
 
 if __name__ == "__main__":
-    demo.launch()
+    gr.TabbedInterface([...]).launch()
